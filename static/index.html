@@ -161,7 +161,7 @@
 
         <fieldset class="consent-fieldset">
           <legend>Age of the person this account is for</legend>
-          <div class="consent-group">
+          <div class="consent-group choice-cards">
             <label class="consent-item">
               <input type="radio" name="signup-age-group" value="adult" required onchange="updateSignupAgeGroup()" />
               <span>18 years or older</span>
@@ -368,7 +368,7 @@
             <div class="card glass-panel">
               <div class="card-head">
                 <h3><i class="fa-solid fa-stethoscope" aria-hidden="true"></i> Recent Consultations</h3>
-                <button class="btn btn-sm btn-outline" onclick="switchView('consultations')">View All</button>
+                <button class="btn-link" onclick="switchView('consultations')">View all</button>
               </div>
               <div class="table-responsive" tabindex="0" role="region" aria-label="Scrollable table">
                 <table class="modern-table">
@@ -388,7 +388,7 @@
             <div class="card glass-panel">
               <div class="card-head">
                 <h3><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Emergency Fleet Status</h3>
-                <button class="btn btn-sm btn-outline" onclick="switchView('emt')">Fleet Board</button>
+                <button class="btn-link" onclick="switchView('emt')">Fleet board</button>
               </div>
               <div class="table-responsive" tabindex="0" role="region" aria-label="Scrollable table">
                 <table class="modern-table">
@@ -778,7 +778,7 @@
               <p>Download a copy of everything we store about you, change your communication preferences, or delete your account. See our <a class="link-inline" href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
               <div class="consent-group" style="margin-top: 12px;">
                 <label class="consent-item">
-                  <input type="checkbox" id="pref-marketing" onchange="handleMarketingPreference(this.checked)" />
+                  <input type="checkbox" class="switch" role="switch" id="pref-marketing" onchange="handleMarketingPreference(this.checked)" />
                   <span>Receive optional health tips and hospital updates</span>
                 </label>
               </div>
@@ -1291,11 +1291,11 @@
     <fieldset class="consent-fieldset cookie-prefs hidden" id="cookie-prefs">
       <legend>Cookie preferences</legend>
       <label class="consent-item">
-        <input type="checkbox" checked disabled />
+        <input type="checkbox" class="switch" role="switch" checked disabled />
         <span><strong>Strictly necessary</strong> &mdash; sign-in session and security. Always on.</span>
       </label>
       <label class="consent-item">
-        <input type="checkbox" id="cookie-pref-analytics" />
+        <input type="checkbox" class="switch" role="switch" id="cookie-pref-analytics" />
         <span><strong>Analytics</strong> &mdash; not currently used. If added, it will stay off unless you turn it on here.</span>
       </label>
     </fieldset>
