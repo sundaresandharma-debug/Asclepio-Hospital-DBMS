@@ -23,6 +23,28 @@ social or error-tracking SDKs.
 
 The Font Awesome attribution comment at the top of each CSS file must be kept, as its licence requires.
 
+## UI elements adapted from Uiverse.io (MIT licence)
+
+Copyright (c) 2023 Uiverse.io and the element authors, used under the MIT License
+(https://github.com/uiverse-io/galaxy/blob/main/LICENSE). Each was recoloured and adapted;
+the matching code in `static/css/styles.css` (and `askConfirm` in `static/js/app.js`) names its source.
+
+| Asclepio element | Uiverse element | Author |
+|---|---|---|
+| Main action button | lucky-bulldog-57 | vinodjangid07 |
+| Outline buttons | big-liger-46 | RichestsoftSukhbir |
+| Card header links | lovely-octopus-40 | benjimich |
+| Text fields | polite-dingo-63 | saidbl1 |
+| Checkboxes | moody-mouse-53 | IndexOC |
+| Switches | bright-rabbit-33 | The-Best-Codes |
+| Single-choice options | polite-monkey-88 | coding-masala |
+| Sign In / Create Account switch | stupid-seahorse-9 | andrew-demchenk0 |
+| Loading indicator | ugly-zebra-9 | Juanes200122 |
+| Bed tooltips | dry-turtle-84 | G4b413l |
+| Notifications | short-ape-5 | kennyotsu |
+| Cookie banner | silent-wasp-13 | vinodjangid07 |
+| Confirmation dialog | brave-elephant-94 | vinodjangid07 |
+
 ## Python dependencies (`requirements.txt`)
 
 | Package | Licence | Notes |

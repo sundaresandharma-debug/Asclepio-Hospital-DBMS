@@ -631,7 +631,7 @@ async function handleBedCardClick(bedId) {
   // Patient Bed Booking Flow
   if (activeUser.role === 'patient') {
     if (bed.STATUS === 'Available') {
-      if (confirm(`Reserve ${bed.BED_NUMBER} in ${bed.WARD_TYPE}?\n\nNo payment is taken through this portal for reserving a bed. Ward charges, if any, are explained by the admissions desk before admission.`)) {
+      if (await askConfirm({ title: `Reserve ${bed.BED_NUMBER}?`, message: `${bed.WARD_TYPE}. No payment is taken through this portal for reserving a bed. Ward charges, if any, are explained by the admissions desk before admission.`, confirmLabel: 'Reserve bed' })) {
         try {
           const response = await fetch('/api/beds/book', {
             method: 'POST',
@@ -658,7 +658,7 @@ async function handleBedCardClick(bedId) {
 
   // Staff Bed Actions (Discharge or Allocate)
   if (bed.STATUS === 'Occupied') {
-    if (confirm(`Discharge patient ${bed.PATIENT_NAME} from ${bed.BED_NUMBER} (${bed.WARD_TYPE})?`)) {
+    if (await askConfirm({ title: 'Discharge patient?', message: `${bed.PATIENT_NAME} will be discharged from ${bed.BED_NUMBER} (${bed.WARD_TYPE}).`, confirmLabel: 'Discharge' })) {
       const response = await fetch('/api/beds/vacate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -908,7 +908,7 @@ async function handleAddEmployee(event) {
 }
 
 async function deleteDoctorRecord(eid) {
-  if (confirm(`Remove doctor/staff record for ${eid}?`)) {
+  if (await askConfirm({ title: 'Remove staff record?', message: `The doctor/staff record ${eid} will be removed.`, confirmLabel: 'Remove', danger: true })) {
     const response = await fetch(`/api/employees/${eid}`, { method: 'DELETE' });
     const data = await response.json();
     if (response.ok) {
@@ -986,7 +986,7 @@ async function handleAddPatient(event) {
 }
 
 async function deletePatientRecord(pid) {
-  if (confirm(`Are you sure you want to delete patient ${pid}?`)) {
+  if (await askConfirm({ title: 'Delete patient?', message: `Patient record ${pid} will be deleted.`, confirmLabel: 'Delete', danger: true })) {
     const response = await fetch(`/api/patients/${pid}`, { method: 'DELETE' });
     const data = await response.json();
     if (response.ok) {
@@ -1439,7 +1439,7 @@ async function populateBedAllocationSelectors() {
 }
 
 async function resetDatabasePrompt() {
-  if (confirm('Reset the database to the demo data? All changes will be lost.')) {
+  if (await askConfirm({ title: 'Reset demo data?', message: 'The database will be reset to the demo data. All changes will be lost.', confirmLabel: 'Reset', danger: true })) {
     const response = await fetch('/api/admin/reset', { method: 'POST' });
     const payload = await response.json();
     notifyUser(payload.message, 'success');
@@ -1471,9 +1471,54 @@ function notifyUser(message, statusType = 'info') {
   if (!toastWrapper) return;
   const toastItem = document.createElement('div');
   toastItem.className = `toast toast-${statusType}`;
-  toastItem.innerHTML = `<i class="fa-solid fa-circle-info" aria-hidden="true"></i> <span>${escapeHtml(message)}</span>`;
+  const toastIcon = { success: 'fa-circle-check', error: 'fa-circle-exclamation' }[statusType] || 'fa-circle-info';
+  toastItem.innerHTML = `<i class="fa-solid ${toastIcon}" aria-hidden="true"></i> <span>${escapeHtml(message)}</span>`;
   toastWrapper.appendChild(toastItem);
   setTimeout(() => toastItem.remove(), 4000);
+}
+
+// Confirmation dialog (replaces the browser's confirm()). Resolves true when confirmed.
+// Layout adapted from "brave-elephant-94" by vinodjangid07 on Uiverse.io (MIT).
+function askConfirm({ title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    const previousFocus = document.activeElement;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop confirm-backdrop';
+    backdrop.innerHTML = `
+      <div class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <button type="button" class="confirm-exit" data-answer="no" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        <h2 id="confirm-title" class="confirm-heading">${escapeHtml(title)}</h2>
+        <p id="confirm-message" class="confirm-text">${escapeHtml(message)}</p>
+        <div class="confirm-actions">
+          <button type="button" class="btn btn-outline" data-answer="no">${escapeHtml(cancelLabel)}</button>
+          <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-answer="yes">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>`;
+    const finish = (answer) => {
+      document.removeEventListener('keydown', onKey, true);
+      backdrop.remove();
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
+      resolve(answer);
+    };
+    const buttons = () => [...backdrop.querySelectorAll('button')];
+    const onKey = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+      if (event.key === 'Tab') {               // keep keyboard focus inside the dialog
+        const list = buttons(); const i = list.indexOf(document.activeElement);
+        event.preventDefault();
+        list[(i + (event.shiftKey ? -1 : 1) + list.length) % list.length].focus();
+      }
+    };
+    backdrop.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-answer]');
+      if (button) finish(button.dataset.answer === 'yes');
+      else if (event.target === backdrop) finish(false);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(backdrop);
+    // Destructive actions start on "Cancel"; others on the confirm button
+    backdrop.querySelector(danger ? '[data-answer="no"].btn' : '[data-answer="yes"]').focus();
+  });
 }
 
 function escapeHtml(rawString) {
@@ -1595,7 +1640,7 @@ async function loadPrivacyRequests() {
 async function resolvePrivacyRequest(requestId, action) {
   let body = {};
   if (action === 'complete') {
-    if (!confirm('Erase this account and its non-clinical personal data? This cannot be undone.')) return;
+    if (!(await askConfirm({ title: 'Erase this account?', message: 'The account and its non-clinical personal data will be erased. This cannot be undone.', confirmLabel: 'Erase account', danger: true }))) return;
   } else {
     const note = prompt('Reason for rejecting this request (shown to the requester):');
     if (!note) return;
@@ -1866,7 +1911,7 @@ async function loadSystemPage() {
 }
 
 async function clearErrorLog() {
-  if (!confirm('Clear all entries from the error log?')) return;
+  if (!(await askConfirm({ title: 'Clear the error log?', message: 'All entries will be removed from the error log.', confirmLabel: 'Clear log', danger: true }))) return;
   const response = await fetch('/api/errors', { method: 'DELETE' });
   const data = await response.json();
   notifyUser(response.ok ? data.message : data.error, response.ok ? 'success' : 'error');

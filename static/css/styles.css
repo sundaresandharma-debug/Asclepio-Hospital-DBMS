@@ -1969,7 +1969,7 @@ details summary { cursor: pointer; }
 .input-readonly { background: var(--wash) !important; border-color: var(--wash) !important; }
 .input-strong { font-weight: 700; }
 .price-total { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-top: 4px; color: var(--text); }
-.tt-hint { color: #ffffff !important; font-size: 11px; margin-top: 4px; font-weight: 700; }
+.tt-hint { color: var(--ink) !important; font-size: 11px; margin-top: 4px; font-weight: 700; }
 .stock-level-low { color: var(--bad); font-weight: 700; }
 .stock-level-ok { color: var(--ok); font-weight: 700; }
 .tel-link { color: var(--link); text-decoration: none; white-space: nowrap; }
@@ -2081,3 +2081,293 @@ details summary { cursor: pointer; }
 @media (max-width: 860px) {
   .auth-wrapper { background: linear-gradient(var(--ink) 0, var(--ink) 260px, var(--page) 260px); }
 }
+
+/* ==========================================================================
+   Components adapted from Uiverse.io (MIT licence, see THIRD_PARTY_NOTICES.md)
+   Each block names the original element. All were recoloured to the
+   Asclepio palette and made keyboard and screen-reader friendly.
+   ========================================================================== */
+
+/* 1. Main action button: label plus an icon in a circle that nudges on hover.
+      From "lucky-bulldog-57" by vinodjangid07. */
+.btn-cta { padding: 6px 6px 6px 22px; gap: 12px; }
+.btn-cta i {
+  order: 2;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--signal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.btn-cta:hover i { animation: cta-nudge 0.9s ease-in-out infinite; }
+@keyframes cta-nudge { 50% { transform: translateX(4px); } }
+.btn-block.btn-cta { justify-content: space-between; }
+.btn-block.btn-cta::before { content: ""; width: 32px; flex-shrink: 0; }   /* keeps the label centred */
+
+/* 2. Outline buttons: the fill rises from the bottom on hover.
+      From "big-liger-46" by RichestsoftSukhbir. */
+.btn-outline { position: relative; overflow: hidden; isolation: isolate; transition: color 0.4s ease, border-color 0.4s ease; }
+.btn-outline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--ink);
+  border-radius: 50% 50% 0 0;
+  transform: translateY(101%);
+  transition: transform 0.4s ease, border-radius 0.4s ease;
+}
+.btn-outline:hover { color: #ffffff; background: var(--page); }
+.btn-outline:hover::before { transform: translateY(0); border-radius: 0; }
+.top-nav .btn-outline::before { background: var(--orchid); }
+.top-nav .btn-outline:hover { color: var(--ink); background: transparent; }
+
+/* 3. Text links with a trailing arrow that slides out ("View all").
+      From "lovely-octopus-40" by benjimich. */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-link::after { content: "\2192"; transition: transform 0.3s cubic-bezier(0.645, 0.045, 0.355, 1); }
+.btn-link:hover::after { transform: translateX(5px); }
+.btn-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* 4. Text fields: the label sits in a notch on the field's border.
+      From "polite-dingo-63" by saidbl1. */
+.form-group { position: relative; margin-top: 10px; margin-bottom: 18px; }
+.form-group > label:first-child {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  z-index: 1;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 16px;
+  background: var(--page);
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.form-group input,
+.form-group select,
+.form-group textarea { padding-top: 14px; padding-bottom: 12px; }
+
+/* 5. Checkboxes: a rounded square that fills eggplant with a white tick.
+      From "moody-mouse-53" by IndexOC. */
+input[type="checkbox"]:not(.switch) {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--page);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+input[type="checkbox"]:not(.switch)::after {
+  content: "";
+  width: 5px;
+  height: 10px;
+  margin-top: -2px;
+  border: solid #ffffff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.15s ease;
+}
+input[type="checkbox"]:not(.switch):checked { background: var(--ink); }
+input[type="checkbox"]:not(.switch):checked::after { transform: rotate(45deg) scale(1); }
+
+/* 6. Switches for settings you can change later (cookies, health tips).
+      From "bright-rabbit-33" by The-Best-Codes. */
+input.switch,
+.consent-item input.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+input.switch::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(42, 5, 48, 0.3);
+  transition: transform 0.3s ease;
+}
+input.switch:checked { background: var(--ink); }
+input.switch:checked::before { transform: translateX(18px); }
+input.switch:disabled, input[type="checkbox"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* 7. Single-choice questions as boxed options (age of the account holder).
+      From "polite-monkey-88" by coding-masala. */
+.choice-cards .consent-item {
+  align-items: center;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--page);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.choice-cards .consent-item:hover { border-color: var(--ink); }
+.choice-cards .consent-item:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.choice-cards input[type="radio"],
+.consent-item input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  background: var(--page);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.consent-item input[type="radio"]:checked { border-color: var(--ink); box-shadow: inset 0 0 0 4px var(--page); background: var(--ink); }
+
+/* 8. Sign In / Create Account switch: a bordered segmented control with an offset shadow.
+      From "stupid-seahorse-9" by andrew-demchenk0. */
+.auth-tabs {
+  background: var(--page);
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 3px;
+}
+
+/* 9. Loading indicator: three dots (eggplant, orchid, orange) circling.
+      From "ugly-zebra-9" by Juanes200122. */
+.spinner {
+  width: 12px;
+  height: 12px;
+  margin: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: -20px 0 var(--orchid), 20px 0 var(--signal);
+  animation: dots-orbit 1s infinite;
+}
+@keyframes dots-orbit {
+  25%  { box-shadow: -20px -20px var(--orchid), 20px 20px var(--signal); }
+  50%  { box-shadow: 0 -20px var(--orchid), 0 20px var(--signal); }
+  75%  { box-shadow: 20px -20px var(--orchid), -20px 20px var(--signal); }
+  100% { box-shadow: 20px 0 var(--orchid), -20px 0 var(--signal); }
+}
+
+/* 10. Bed tooltips: a light card with a pointer arrow.
+       From "dry-turtle-84" by G4b413l. */
+.bed-seat-card .bed-tooltip {
+  background: var(--page);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 30px rgba(42, 5, 48, 0.16);
+}
+.bed-seat-card .bed-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: var(--page);
+  filter: drop-shadow(0 1px 0 var(--line));
+}
+.bed-tooltip .tt-title { color: var(--ink); }
+.bed-tooltip .tt-line { color: var(--muted); }
+
+/* 11. Notifications: soft coloured cards with an icon and a coloured edge.
+       From "short-ape-5" by kennyotsu. */
+.toast {
+  max-width: 380px;
+  align-items: flex-start;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border-left: 4px solid currentColor;
+  background: var(--page);
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgba(42, 5, 48, 0.16);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.toast i { margin-top: 2px; font-size: 16px; color: inherit; }
+.toast-success { background: var(--ok-bg); color: var(--ok); }
+.toast-error { background: var(--bad-bg); color: var(--bad); }
+.toast-info { background: var(--page); color: var(--ink); }
+.toast-success i, .toast-info i { color: inherit; }
+
+/* 12. Cookie banner: a compact card in the bottom-left corner.
+       From "silent-wasp-13" by vinodjangid07. */
+.cookie-banner {
+  left: 16px;
+  right: auto;
+  max-width: 400px;
+  margin: 0;
+  padding: 22px;
+  border-radius: var(--radius-lg);
+}
+.cookie-banner h2 { font-size: 17px; }
+.cookie-banner p { font-size: 13px; }
+.cookie-banner-actions .btn { flex: 1 1 auto; white-space: nowrap; padding: 9px 14px; font-size: 13px; }
+
+/* 13. Confirmation dialogs (replaces the browser's confirm box).
+       From "brave-elephant-94" by vinodjangid07. */
+.confirm-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 30px;
+  border-radius: var(--radius-lg);
+  background: var(--page);
+  box-shadow: 0 24px 60px rgba(42, 5, 48, 0.25);
+}
+.confirm-heading { font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 6px; padding-right: 28px; }
+.confirm-text { font-size: 14px; line-height: 1.6; color: var(--muted); margin-bottom: 22px; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.confirm-exit {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: var(--wash);
+  color: var(--ink);
+  cursor: pointer;
+}
+.confirm-exit:hover { background: var(--tile-hover); }
