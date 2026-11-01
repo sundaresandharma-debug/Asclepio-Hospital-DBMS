@@ -2371,3 +2371,26 @@ input.switch:disabled, input[type="checkbox"]:disabled { opacity: 0.55; cursor: 
   cursor: pointer;
 }
 .confirm-exit:hover { background: var(--tile-hover); }
+
+/* Hospital Staff option when staff sign-up is switched off (no STAFF_INVITE_CODE on the server) */
+.role-card:has(input:disabled) .role-card-inner {
+  border-style: dashed;
+  background: var(--wash);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.role-card:has(input:disabled) .role-card-inner i,
+.role-card:has(input:disabled) .role-card-inner small { color: var(--muted); }
+.role-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--wash);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.role-note i { color: var(--ink); margin-top: 3px; }
