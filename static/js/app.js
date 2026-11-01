@@ -202,8 +202,13 @@ async function loadSiteInfo() {
 
   const staffRadio = document.querySelector('input[name="signup-role"][value="staff"]');
   if (staffRadio && !siteInfo.staff_signup_enabled) {
+    // Staff sign-up needs STAFF_INVITE_CODE on the server; without it, explain where staff accounts come from
+    const card = staffRadio.closest('.role-card');
     staffRadio.disabled = true;
-    staffRadio.closest('.role-card').querySelector('small').textContent = 'Accounts issued by your administrator';
+    staffRadio.setAttribute('aria-describedby', 'staff-signup-note');
+    card.querySelector('small').textContent = 'Not available here';
+    card.querySelector('.role-card-inner > i').className = 'fa-solid fa-lock';
+    document.getElementById('staff-signup-note').classList.remove('hidden');
   }
 
   document.querySelectorAll('.con-fee-display').forEach((el) => {
