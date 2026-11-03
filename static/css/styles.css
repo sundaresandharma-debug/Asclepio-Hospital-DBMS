@@ -2394,3 +2394,150 @@ input.switch:disabled, input[type="checkbox"]:disabled { opacity: 0.55; cursor: 
   line-height: 1.5;
 }
 .role-note i { color: var(--ink); margin-top: 3px; }
+
+/* ==========================================================================
+   Interactive dashboard & data views
+   ========================================================================== */
+
+/* Ward occupancy rings: the eggplant arc is the share of occupied beds */
+@property --pct { syntax: "<number>"; inherits: false; initial-value: 0; }
+.occ-ring {
+  --size: 96px;
+  --thickness: 11px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--ink) calc(var(--pct) * 1%), var(--orchid) 0);
+  transition: --pct 0.9s ease-out;
+  animation: ring-fill 0.9s ease-out;
+}
+.occ-ring::before {
+  content: "";
+  position: absolute;
+  inset: var(--thickness);
+  border-radius: 50%;
+  background: var(--tile);
+}
+@keyframes ring-fill { from { --pct: 0; } }
+.occ-ring-centre { position: relative; display: grid; text-align: center; line-height: 1.05; color: var(--ink); }
+.occ-ring-centre strong { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.occ-ring-centre small { font-size: 11px; color: var(--muted); font-weight: 600; }
+.occ-ring-small { --size: 40px; --thickness: 5px; }
+.occ-ring-small .occ-ring-centre { font-size: 10px; font-weight: 700; }
+
+.ward-rings { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 18px 12px; }
+.ward-ring-item { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.ward-ring-name { font-weight: 700; color: var(--ink); font-size: 14px; }
+.ward-ring-meta { font-size: 12px; color: var(--muted); }
+.ward-head-meta { display: inline-flex; align-items: center; gap: 10px; }
+.ward-block .occ-ring::before { background: var(--tile); }
+
+/* If the activity card is hidden (patients), the rings take the full width */
+.dash-insights { margin-bottom: 20px; }
+.dash-insights > :first-child:has(+ .hidden) { grid-column: 1 / -1; }
+
+/* Live activity feed */
+.live-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ok); }
+.live-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: live-pulse 2s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: 0.35; } }
+.activity-feed { list-style: none; display: grid; gap: 2px; max-height: 330px; overflow-y: auto; }
+.activity-item { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: start; padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.activity-item:last-child { border-bottom: none; }
+.activity-item.is-new { animation: activity-in 0.5s ease-out; background: var(--tile-hover); border-radius: 10px; }
+@keyframes activity-in { from { opacity: 0; transform: translateY(-6px); } }
+.activity-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--wash); color: var(--ink); font-size: 13px; }
+.activity-bed { background: var(--orchid); }
+.activity-consultation { background: var(--info-bg); }
+.activity-prescription { background: var(--ok-bg); color: var(--ok); }
+.activity-pharmacy { background: var(--warn-bg); color: var(--warn); }
+.activity-privacy { background: var(--bad-bg); color: var(--bad); }
+.activity-text { line-height: 1.45; padding-top: 7px; }
+.activity-time { font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 8px; font-variant-numeric: tabular-nums; }
+
+/* List / Calendar toggle and filter chips */
+.view-toggle, .filter-chips { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--wash); flex-wrap: wrap; }
+.view-toggle button, .chip {
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--muted);
+  background: transparent; border: none; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: var(--transition);
+}
+.view-toggle button:hover, .chip:hover { color: var(--ink); }
+.view-toggle button[aria-pressed="true"], .chip[aria-pressed="true"] { background: var(--ink); color: #ffffff; }
+.filter-chips .hidden { display: none; }
+
+/* Pharmacy stock meter */
+.stock-meter { display: inline-flex; align-items: center; gap: 10px; min-width: 190px; }
+.stock-meter-track { flex: 1; max-width: 110px; height: 8px; border-radius: 99px; background: var(--wash); overflow: hidden; }
+.stock-meter-fill { display: block; height: 100%; border-radius: 99px; background: var(--ink); transition: width 0.6s ease-out; }
+.stock-meter-low .stock-meter-fill, .stock-meter-out .stock-meter-fill { background: var(--bad); }
+
+/* Consultations week calendar */
+.con-calendar { display: grid; gap: 14px; }
+.cal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cal-nav { display: inline-flex; gap: 6px; }
+.cal-range { font-size: 18px; font-weight: 800; color: var(--ink); }
+.cal-count { font-size: 13px; color: var(--muted); font-weight: 600; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: 56px repeat(7, minmax(110px, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: max-content;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 620px;
+}
+.cal-corner, .cal-day-head { position: sticky; top: 0; z-index: 1; background: var(--page); }
+.cal-day-head { padding: 10px 8px; font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; border-bottom: 1px solid var(--line-strong); border-left: 1px solid var(--line); }
+.cal-day-head.is-today { color: var(--ink); box-shadow: inset 0 -3px 0 var(--signal); }
+.cal-hour { padding: 6px 8px; font-size: 11px; color: var(--muted); text-align: right; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.cal-cell { min-height: 56px; padding: 4px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); display: grid; gap: 4px; align-content: start; }
+.cal-cell.is-today { background: var(--tile-hover); }
+.cal-event {
+  font: inherit; text-align: left; cursor: pointer; display: grid; gap: 1px;
+  padding: 6px 8px; border-radius: 8px; border: none; border-left: 4px solid var(--ink);
+  background: var(--orchid); color: var(--ink); font-size: 12px; line-height: 1.3;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.cal-event:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(42, 5, 48, 0.15); }
+.cal-event.cal-completed { background: var(--ok-bg); color: var(--ok); border-left-color: var(--ok); }
+.cal-event-time { font-weight: 800; font-variant-numeric: tabular-nums; }
+.cal-event-title { font-weight: 700; }
+.cal-event-meta { opacity: 0.85; }
+.cal-agenda { display: none; gap: 14px; }
+.cal-agenda-day { display: grid; gap: 6px; }
+.cal-agenda-day h4 { font-size: 13px; color: var(--muted); }
+.cal-agenda-day h4.is-today { color: var(--ink); }
+@media (max-width: 760px) {
+  .cal-grid { display: none; }
+  .cal-agenda { display: grid; }
+}
+
+/* Shared detail drawer */
+.drawer { position: fixed; inset: 0; z-index: 120; }
+.drawer-scrim { position: absolute; inset: 0; background: rgba(42, 5, 48, 0.35); }
+.drawer-panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: min(420px, 100%); background: var(--page);
+  box-shadow: -20px 0 50px rgba(42, 5, 48, 0.2);
+  display: flex; flex-direction: column; gap: 18px; padding: 28px; overflow-y: auto;
+  animation: drawer-in 0.25s ease-out;
+}
+.drawer-panel:focus { outline: none; }
+@keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.drawer-head h2 { font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1.2; }
+.drawer-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.drawer-body { display: grid; gap: 0; }
+.drawer-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.drawer-row dt { color: var(--muted); font-weight: 600; }
+.drawer-row dd { margin: 0; color: var(--text); }
+.drawer-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+@media (max-width: 600px) {
+  .drawer-panel { top: auto; left: 0; width: 100%; max-height: 85vh; border-radius: 24px 24px 0 0; animation-name: drawer-up; }
+  @keyframes drawer-up { from { transform: translateY(40px); opacity: 0; } }
+}

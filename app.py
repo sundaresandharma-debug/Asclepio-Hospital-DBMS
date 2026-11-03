@@ -784,9 +784,19 @@ def vacate_bed():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
+        "SELECT B.BED_NUMBER, B.WARD_TYPE, P.NAME FROM BEDS B LEFT JOIN PATIENTS P ON B.PATIENT_ID = P.PID WHERE B.BED_ID = ?",
+        (bed_id,),
+    )
+    bed = cursor.fetchone()
+    cursor.execute(
         "UPDATE BEDS SET STATUS = 'Available', PATIENT_ID = NULL, ASSIGNED_DATE = NULL WHERE BED_ID = ?",
         (bed_id,),
     )
+    if bed:
+        cursor.execute(
+            "INSERT INTO NOTIFICATIONS (TYPE, MESSAGE) VALUES ('bed', ?)",
+            (f"{bed['NAME'] or 'A patient'} was discharged from Bed {bed['BED_NUMBER']} in {bed['WARD_TYPE']}.",),
+        )
     conn.commit()
     conn.close()
     return jsonify({"message": f"Bed {bed_id} discharged and marked Available"})
@@ -1319,6 +1329,15 @@ def book_consultation():
         "INSERT INTO CONSULTATION (CONSULTATION_ID, PATIENT_ID, EMP_ID, REASON, FEES, TIME, STATUS) VALUES (?, ?, ?, ?, ?, ?, 'Scheduled')",
         (cid, patient_id, emp_id, reason, fees, time),
     )
+    cursor.execute("SELECT NAME FROM PATIENTS WHERE PID = ?", (patient_id,))
+    patient_row = cursor.fetchone()
+    cursor.execute("SELECT NAME FROM EMPLOYEES WHERE EID = ?", (emp_id,))
+    doctor_row = cursor.fetchone()
+    cursor.execute(
+        "INSERT INTO NOTIFICATIONS (TYPE, MESSAGE) VALUES ('consultation', ?)",
+        (f"{patient_row['NAME'] if patient_row else patient_id} booked a consultation with "
+         f"{doctor_row['NAME'] if doctor_row else emp_id} for {time}.",),
+    )
     conn.commit()
     conn.close()
     return jsonify({"message": f"Consultation scheduled successfully. Fee: ₹{float(fees):.2f}", "CONSULTATION_ID": cid}), 201
@@ -1436,6 +1455,10 @@ def create_prescription():
             cursor.execute("UPDATE PHARMACY SET STOCK = MAX(0, STOCK - 1) WHERE MEDICINE_NAME = ?", (med_name,))
 
         cursor.execute("UPDATE CONSULTATION SET STATUS = 'Completed' WHERE CONSULTATION_ID = ?", (consultation_id,))
+        cursor.execute(
+            "INSERT INTO NOTIFICATIONS (TYPE, MESSAGE) VALUES ('prescription', ?)",
+            (f"Prescription {pres_id} issued for consultation {consultation_id}.",),
+        )
         conn.commit()
     except sqlite3.IntegrityError as e:
         conn.close()

@@ -347,6 +347,7 @@ async function handleLogout() {
 }
 
 function renderUnauthenticatedView() {
+  stopActivityFeed();
   document.getElementById('auth-screen').classList.remove('hidden');
   document.getElementById('app-screen').classList.add('hidden');
 }
@@ -427,6 +428,7 @@ function applyRolePermissions() {
 
 function switchView(targetViewKey) {
   activeView = targetViewKey;
+  if (targetViewKey !== 'dashboard') stopActivityFeed();
 
   // Update Sidebar Active States
   document.querySelectorAll('.sidebar-nav .nav-item').forEach((button) => {
@@ -506,12 +508,14 @@ async function refreshDashboard() {
   try {
     const metrics = await getJSON('/api/dashboard/stats');
 
-    document.getElementById('stat-consultations').textContent = metrics.scheduled_consultations || 0;
-    document.getElementById('stat-available-beds').textContent = metrics.available_beds || 0;
+    animateCount(document.getElementById('stat-consultations'), metrics.scheduled_consultations || 0);
+    animateCount(document.getElementById('stat-available-beds'), metrics.available_beds || 0);
     document.getElementById('stat-total-beds').textContent = metrics.total_beds || 0;
-    document.getElementById('stat-patients').textContent = metrics.patients || 0;
-    document.getElementById('stat-employees').textContent = metrics.employees || 0;
-    document.getElementById('stat-ambulances').textContent = metrics.available_ambulances || 0;
+    animateCount(document.getElementById('stat-patients'), metrics.patients || 0);
+    animateCount(document.getElementById('stat-employees'), metrics.employees || 0);
+    animateCount(document.getElementById('stat-ambulances'), metrics.available_ambulances || 0);
+    loadWardOccupancy();
+    if (activeUser && activeUser.role === 'staff') startActivityFeed();
 
     const appointments = await getJSON('/api/consultations');
     const dashConTbody = document.getElementById('dash-consultations-tbody');
@@ -578,7 +582,10 @@ function renderBedsMatrix(beds) {
       <div class="ward-block glass-panel">
         <div class="ward-block-header">
           <h3><i class="fa-solid fa-hospital"></i> ${escapeHtml(wardName)}</h3>
-          <span class="ward-badge">${availableCount} of ${wardBeds.length} Beds Available</span>
+          <span class="ward-head-meta">
+            ${occupancyRing(wardBeds.length - availableCount, wardBeds.length, wardName, 'small')}
+            <span class="ward-badge">${availableCount} of ${wardBeds.length} Beds Available</span>
+          </span>
         </div>
         <div class="beds-grid-theatre">
           ${wardBeds.map((bed) => {
@@ -721,16 +728,19 @@ async function loadPharmacyInventory() {
     const tableBody = document.getElementById('pharmacy-tbody');
     const isStaff = activeUser && activeUser.role === 'staff';
 
+    const maxStock = Math.max(1, ...pharmacyInventoryCache.map((m) => Number(m.STOCK) || 0));
     tableBody.innerHTML = pharmacyInventoryCache.map((med) => {
       const isAvailable = med.STOCK > 0;
+      const level = med.STOCK <= 0 ? 'out' : med.STOCK < LOW_STOCK_LIMIT ? 'low' : 'ok';
       return `
-        <tr>
+        <tr data-stock-level="${level}">
           <td><strong>${escapeHtml(med.MEDICINE_NAME)}</strong></td>
           <td><span class="badge-role">${escapeHtml(med.MEDICINE_TYPE)}</span></td>
           <td>
             ${isStaff ? `
-              <span class="${med.STOCK < 50 ? 'stock-level-low' : 'stock-level-ok'}">
-                ${med.STOCK} units ${med.STOCK < 50 ? '(Low)' : ''}
+              <span class="stock-meter stock-meter-${level}">
+                <span class="stock-meter-track" aria-hidden="true"><span class="stock-meter-fill" style="width: ${Math.max(3, Math.round((med.STOCK / maxStock) * 100))}%"></span></span>
+                <span class="${level === 'ok' ? 'stock-level-ok' : 'stock-level-low'}">${med.STOCK} units${level === 'low' ? ' (Low)' : level === 'out' ? ' (Out)' : ''}</span>
               </span>
             ` : `
               <span class="stock-badge-tag ${isAvailable ? 'stock-in' : 'stock-out'}">
@@ -754,6 +764,7 @@ async function loadPharmacyInventory() {
         </tr>
       `;
     }).join('') || `<tr><td colspan="5">${stateBlock('fa-pills', 'The pharmacy catalog is empty', isStaff ? 'Add a medicine with “Restock Medicine”.' : 'Please check back later.')}</td></tr>`;
+    applyPharmacyFilters();
   } catch (err) {
     tableMessage('pharmacy-tbody', 5, 'fa-circle-exclamation', "Couldn't load the pharmacy catalog", err.message, 'loadPharmacyInventory');
   }
@@ -1012,6 +1023,7 @@ async function loadConsultationsRegistry() {
   showTableLoading('consultations-tbody', 8);
   try {
     const consultations = await getJSON('/api/consultations');
+    consultationsCache = consultations;
     const tableBody = document.getElementById('consultations-tbody');
     const isStaff = activeUser && activeUser.role === 'staff';
 
@@ -1035,6 +1047,7 @@ async function loadConsultationsRegistry() {
         ` : ''}
       </tr>
     `).join('') || `<tr><td colspan="8">${stateBlock('fa-calendar-xmark', 'No consultations yet', 'Book one with “Book Consultation”.')}</td></tr>`;
+    setConsultationLayout(readConsultationLayout(), { keepWeek: true });
   } catch (err) {
     tableMessage('consultations-tbody', 8, 'fa-circle-exclamation', "Couldn't load consultations", err.message, 'loadConsultationsRegistry');
   }
@@ -2006,3 +2019,339 @@ async function finishOnboarding() {
     }
   }
 }
+
+/* --------------------------------------------------------------------------
+   16. Interactive dashboard & data views
+   Count-up numbers, ward occupancy rings, live activity feed,
+   consultations calendar, pharmacy stock filters and a shared detail drawer.
+   -------------------------------------------------------------------------- */
+
+const LOW_STOCK_LIMIT = 50;   // same threshold as the server's low_stock_medicines count
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Numbers count up from their current value to the new one
+function animateCount(element, target) {
+  if (!element) return;
+  const end = Number(target) || 0;
+  const start = Number(element.textContent) || 0;
+  if (prefersReducedMotion() || start === end) {
+    element.textContent = end;
+    return;
+  }
+  const duration = 700;
+  const startedAt = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - startedAt) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    element.textContent = Math.round(start + (end - start) * eased);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// A ring that fills with the share of occupied beds
+function occupancyRing(occupied, total, wardName, size = 'large') {
+  const pct = total ? Math.round((occupied / total) * 100) : 0;
+  const free = total - occupied;
+  const label = `${wardName}: ${occupied} of ${total} beds occupied, ${free} free`;
+  return `
+    <span class="occ-ring occ-ring-${size}" style="--pct: ${pct}" role="img" aria-label="${escapeHtml(label)}">
+      <span class="occ-ring-centre" aria-hidden="true">${size === 'small' ? `${pct}%` : `<strong>${free}</strong><small>free</small>`}</span>
+    </span>`;
+}
+
+async function loadWardOccupancy() {
+  const container = document.getElementById('ward-occupancy');
+  if (!container) return;
+  try {
+    const beds = await getJSON('/api/beds');
+    const wards = {};
+    beds.forEach((bed) => {
+      wards[bed.WARD_TYPE] = wards[bed.WARD_TYPE] || { total: 0, occupied: 0 };
+      wards[bed.WARD_TYPE].total += 1;
+      if (bed.STATUS === 'Occupied') wards[bed.WARD_TYPE].occupied += 1;
+    });
+    container.innerHTML = Object.entries(wards).map(([name, w]) => `
+      <div class="ward-ring-item">
+        ${occupancyRing(w.occupied, w.total, name)}
+        <span class="ward-ring-name">${escapeHtml(name)}</span>
+        <span class="ward-ring-meta">${w.occupied} occupied · ${w.total} beds</span>
+      </div>`).join('') || stateBlock('fa-bed', 'No beds set up yet');
+  } catch (err) {
+    container.innerHTML = stateBlock('fa-circle-exclamation', "Couldn't load ward occupancy", err.message, 'loadWardOccupancy');
+  }
+}
+
+// Live activity feed (staff): refreshes every 30 seconds while the dashboard is open and visible
+let activityTimer = null;
+let lastActivityId = 0;
+const ACTIVITY_ICONS = {
+  bed: 'fa-bed', pharmacy: 'fa-pills', consultation: 'fa-calendar-check',
+  prescription: 'fa-file-prescription', privacy: 'fa-user-shield'
+};
+
+function relativeTime(createdAt) {
+  // SQLite CURRENT_TIMESTAMP is UTC, written as "YYYY-MM-DD HH:MM:SS"
+  const then = new Date(String(createdAt).replace(' ', 'T') + 'Z');
+  const seconds = Math.round((Date.now() - then.getTime()) / 1000);
+  if (Number.isNaN(seconds)) return '';
+  if (seconds < 45) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+async function loadActivityFeed() {
+  const list = document.getElementById('activity-feed');
+  if (!list) return;
+  try {
+    const items = await getJSON('/api/notifications');
+    const newestId = items.length ? items[0].ID : 0;
+    list.innerHTML = items.slice(0, 8).map((item) => `
+      <li class="activity-item${lastActivityId && item.ID > lastActivityId ? ' is-new' : ''}">
+        <span class="activity-icon activity-${escapeHtml(item.TYPE)}" aria-hidden="true"><i class="fa-solid ${ACTIVITY_ICONS[item.TYPE] || 'fa-circle-info'}"></i></span>
+        <span class="activity-text">${escapeHtml(item.MESSAGE)}</span>
+        <time class="activity-time" datetime="${escapeHtml(String(item.CREATED_AT).replace(' ', 'T') + 'Z')}">${relativeTime(item.CREATED_AT)}</time>
+      </li>`).join('') || `<li>${stateBlock('fa-wave-square', 'No activity yet', 'Bookings, discharges and purchases will appear here.')}</li>`;
+    lastActivityId = newestId;
+  } catch (err) {
+    list.innerHTML = `<li>${stateBlock('fa-circle-exclamation', "Couldn't load recent activity", err.message, 'loadActivityFeed')}</li>`;
+  }
+}
+
+function startActivityFeed() {
+  loadActivityFeed();
+  if (activityTimer) return;
+  activityTimer = setInterval(() => {
+    if (activeView === 'dashboard' && document.visibilityState === 'visible') loadActivityFeed();
+  }, 30000);
+}
+
+function stopActivityFeed() {
+  clearInterval(activityTimer);
+  activityTimer = null;
+}
+
+// Pharmacy filter chips work together with the search box
+let pharmacyFilter = 'all';
+
+function setPharmacyFilter(filter) {
+  pharmacyFilter = filter;
+  document.querySelectorAll('#view-pharmacy .chip').forEach((chip) => {
+    chip.setAttribute('aria-pressed', String(chip.dataset.filter === filter));
+  });
+  applyPharmacyFilters();
+}
+
+function applyPharmacyFilters() {
+  const query = (document.getElementById('pharmacy-search')?.value || '').toLowerCase();
+  document.querySelectorAll('#pharmacy-table tbody tr').forEach((row) => {
+    const level = row.dataset.stockLevel;
+    const matchesChip = !level || pharmacyFilter === 'all'
+      || (pharmacyFilter === 'low' && level === 'low')
+      || (pharmacyFilter === 'out' && level === 'out')
+      || (pharmacyFilter === 'available' && level !== 'out');
+    row.style.display = matchesChip && row.textContent.toLowerCase().includes(query) ? '' : 'none';
+  });
+  // Say so when nothing matches, instead of showing an empty table
+  const tbody = document.getElementById('pharmacy-tbody');
+  const rows = [...tbody.querySelectorAll('tr[data-stock-level]')];
+  let emptyRow = document.getElementById('pharmacy-no-match');
+  const noneVisible = rows.length && rows.every((row) => row.style.display === 'none');
+  if (noneVisible && !emptyRow) {
+    emptyRow = document.createElement('tr');
+    emptyRow.id = 'pharmacy-no-match';
+    emptyRow.innerHTML = `<td colspan="5">${stateBlock('fa-filter-circle-xmark', 'No medicines match', 'Try another filter or search.')}</td>`;
+    tbody.appendChild(emptyRow);
+  } else if (!noneVisible && emptyRow) {
+    emptyRow.remove();
+  }
+}
+
+// Consultations: list or week calendar
+let consultationsCache = [];
+let calendarWeekStart = null;
+const CAL_FIRST_HOUR = 8;
+const CAL_LAST_HOUR = 20;
+
+function readConsultationLayout() {
+  try { return sessionStorage.getItem('asclepio-consultation-layout') || 'list'; } catch (err) { return 'list'; }
+}
+
+function setConsultationLayout(layout, { keepWeek = false } = {}) {
+  try { sessionStorage.setItem('asclepio-consultation-layout', layout); } catch (err) { /* private mode */ }
+  const isCalendar = layout === 'calendar';
+  document.getElementById('con-layout-list')?.setAttribute('aria-pressed', String(!isCalendar));
+  document.getElementById('con-layout-calendar')?.setAttribute('aria-pressed', String(isCalendar));
+  document.querySelector('#view-consultations .table-responsive')?.classList.toggle('hidden', isCalendar);
+  document.getElementById('consultations-calendar')?.classList.toggle('hidden', !isCalendar);
+  if (isCalendar) {
+    if (!keepWeek || !calendarWeekStart) calendarWeekStart = startOfWeek(defaultCalendarDate());
+    renderConsultationCalendar();
+  }
+}
+
+function parseSlot(time) {
+  // "YYYY-MM-DD HH:MM" in the hospital's local time
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(time || ''));
+  return match ? new Date(+match[1], +match[2] - 1, +match[3], +match[4], +match[5]) : null;
+}
+
+function startOfWeek(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // Monday
+  return d;
+}
+
+function defaultCalendarDate() {
+  const dated = consultationsCache.map((c) => parseSlot(c.TIME)).filter(Boolean).sort((a, b) => a - b);
+  const now = new Date();
+  return dated.find((d) => d >= now) || dated[dated.length - 1] || now;
+}
+
+function shiftCalendarWeek(weeks) {
+  if (weeks === 0) calendarWeekStart = startOfWeek(new Date());
+  else calendarWeekStart.setDate(calendarWeekStart.getDate() + weeks * 7);
+  renderConsultationCalendar();
+}
+
+function renderConsultationCalendar() {
+  const container = document.getElementById('consultations-calendar');
+  if (!container || !calendarWeekStart) return;
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(calendarWeekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const weekEnd = new Date(days[6]);
+  weekEnd.setDate(weekEnd.getDate() + 1);
+  const inWeek = consultationsCache
+    .map((c) => ({ ...c, slot: parseSlot(c.TIME) }))
+    .filter((c) => c.slot && c.slot >= days[0] && c.slot < weekEnd)
+    .sort((a, b) => a.slot - b.slot);
+  const sameDay = (a, b) => a.toDateString() === b.toDateString();
+  const today = new Date();
+  const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const rangeLabel = `${days[0].toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${days[6].toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const block = (c) => `
+    <button type="button" class="cal-event cal-${escapeHtml(String(c.STATUS).toLowerCase())}" onclick="openConsultationDetail('${escapeHtml(c.CONSULTATION_ID)}')"
+      aria-label="${escapeHtml(`${c.slot.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}, ${c.slot.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}: ${c.PATIENT_NAME} with ${c.DOCTOR_NAME}, ${c.STATUS}`)}">
+      <span class="cal-event-time">${c.slot.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+      <span class="cal-event-title">${escapeHtml(c.PATIENT_NAME)}</span>
+      <span class="cal-event-meta">${escapeHtml(c.DOCTOR_NAME)}</span>
+    </button>`;
+
+  const hours = [];
+  for (let h = CAL_FIRST_HOUR; h <= CAL_LAST_HOUR; h += 1) hours.push(h);
+  const hourOf = (c) => Math.min(CAL_LAST_HOUR, Math.max(CAL_FIRST_HOUR, c.slot.getHours()));
+
+  container.innerHTML = `
+    <div class="cal-toolbar">
+      <div class="cal-nav">
+        <button type="button" class="btn btn-sm btn-outline" onclick="shiftCalendarWeek(-1)" aria-label="Previous week"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="shiftCalendarWeek(0)">This week</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="shiftCalendarWeek(1)" aria-label="Next week"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <h3 class="cal-range" aria-live="polite">${rangeLabel}</h3>
+      <span class="cal-count">${inWeek.length} appointment${inWeek.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="cal-grid" role="region" aria-label="Appointments for the week of ${escapeHtml(rangeLabel)}">
+      <div class="cal-corner" aria-hidden="true"></div>
+      ${days.map((d) => `<div class="cal-day-head${sameDay(d, today) ? ' is-today' : ''}" aria-hidden="true">${fmtDay(d)}</div>`).join('')}
+      ${hours.map((h) => `
+        <div class="cal-hour" aria-hidden="true">${String(h).padStart(2, '0')}:00</div>
+        ${days.map((d) => `<div class="cal-cell${sameDay(d, today) ? ' is-today' : ''}">${inWeek.filter((c) => sameDay(c.slot, d) && hourOf(c) === h).map(block).join('')}</div>`).join('')}
+      `).join('')}
+    </div>
+    <div class="cal-agenda">
+      ${days.map((d) => {
+        const list = inWeek.filter((c) => sameDay(c.slot, d));
+        return `<div class="cal-agenda-day"><h4${sameDay(d, today) ? ' class="is-today"' : ''}>${fmtDay(d)}</h4>${list.map(block).join('') || '<p class="text-muted">No appointments</p>'}</div>`;
+      }).join('')}
+    </div>
+    ${inWeek.length ? '' : stateBlock('fa-calendar-xmark', 'No appointments this week', 'Use the arrows to see other weeks.')}`;
+}
+
+function openConsultationDetail(consultationId) {
+  const c = consultationsCache.find((item) => item.CONSULTATION_ID === consultationId);
+  if (!c) return;
+  const isStaff = activeUser && activeUser.role === 'staff';
+  const actions = [];
+  if (isStaff && c.STATUS === 'Scheduled') {
+    actions.push({ label: 'Prescribe', icon: 'fa-file-prescription', className: 'btn-primary', onClick: () => { closeDrawer(); preparePrescriptionFor(c.CONSULTATION_ID); } });
+  }
+  openDrawer({
+    eyebrow: `Consultation ${c.CONSULTATION_ID}`,
+    title: c.PATIENT_NAME,
+    rows: [
+      ['When', c.TIME],
+      ['Doctor', `${c.DOCTOR_NAME} (${c.DEPARTMENT})`],
+      ['Reason', c.REASON],
+      ['Fee', `₹${Number(c.FEES || 0).toLocaleString()}`],
+      ['Status', `<span class="status-pill status-${escapeHtml(String(c.STATUS).toLowerCase())}">${escapeHtml(c.STATUS)}</span>`, true]
+    ],
+    actions
+  });
+}
+
+// Shared side drawer. rows: [label, value, valueIsHtml]; actions: {label, icon, className, onClick}
+let drawerReturnFocus = null;
+
+function openDrawer({ eyebrow = '', title, rows = [], actions = [] }) {
+  const drawer = document.getElementById('detail-drawer');
+  drawerReturnFocus = document.activeElement;
+  document.getElementById('drawer-eyebrow').textContent = eyebrow;
+  document.getElementById('drawer-title').textContent = title;
+  document.getElementById('drawer-body').innerHTML = rows.map(([label, value, isHtml]) => `
+    <div class="drawer-row"><dt>${escapeHtml(label)}</dt><dd>${isHtml ? value : escapeHtml(value ?? '—')}</dd></div>`).join('');
+  const actionBar = document.getElementById('drawer-actions');
+  actionBar.innerHTML = '';
+  actions.forEach((action) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn ${action.className || 'btn-outline'}`;
+    button.innerHTML = `${action.icon ? `<i class="fa-solid ${action.icon}" aria-hidden="true"></i> ` : ''}${escapeHtml(action.label)}`;
+    button.addEventListener('click', action.onClick);
+    actionBar.appendChild(button);
+  });
+  actionBar.classList.toggle('hidden', !actions.length);
+  drawer.classList.remove('hidden');
+  requestAnimationFrame(() => drawer.classList.add('is-open'));
+  drawer.querySelector('.drawer-panel').focus();
+}
+
+function closeDrawer() {
+  const drawer = document.getElementById('detail-drawer');
+  if (!drawer || drawer.classList.contains('hidden')) return;
+  drawer.classList.remove('is-open');
+  drawer.classList.add('hidden');
+  if (drawerReturnFocus && document.body.contains(drawerReturnFocus)) drawerReturnFocus.focus();
+  drawerReturnFocus = null;
+}
+
+document.addEventListener('keydown', (event) => {
+  const drawer = document.getElementById('detail-drawer');
+  if (!drawer || drawer.classList.contains('hidden')) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeDrawer();
+    return;
+  }
+  if (event.key === 'Tab') {   // keep keyboard focus inside the drawer
+    const panel = drawer.querySelector('.drawer-panel');
+    const focusables = getFocusable(panel);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+});
