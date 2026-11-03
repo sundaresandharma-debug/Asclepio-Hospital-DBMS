@@ -368,6 +368,24 @@
             </div>
           </div>
 
+          <!-- Ward occupancy and live activity -->
+          <div class="dashboard-grid-2 dash-insights">
+            <div class="card glass-panel">
+              <div class="card-head">
+                <h3><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Ward occupancy</h3>
+                <button class="btn-link" onclick="switchView('beds')">Bed map</button>
+              </div>
+              <div id="ward-occupancy" class="ward-rings"></div>
+            </div>
+            <div class="card glass-panel staff-only">
+              <div class="card-head">
+                <h3><i class="fa-solid fa-wave-square" aria-hidden="true"></i> Recent activity</h3>
+                <span class="live-dot" title="Updates every 30 seconds"><span class="sr-only">Updates every 30 seconds</span>Live</span>
+              </div>
+              <ul id="activity-feed" class="activity-feed" aria-live="polite"></ul>
+            </div>
+          </div>
+
           <!-- Quick Boards -->
           <div class="dashboard-grid-2">
             <div class="card glass-panel">
@@ -609,6 +627,10 @@
                 <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                 <input type="search" aria-label="Search consultation" placeholder="Search consultation..." oninput="filterTable('consultations-table', this.value)" />
               </div>
+              <div class="view-toggle" role="group" aria-label="Show consultations as">
+                <button type="button" id="con-layout-list" aria-pressed="true" onclick="setConsultationLayout('list')"><i class="fa-solid fa-list" aria-hidden="true"></i> List</button>
+                <button type="button" id="con-layout-calendar" aria-pressed="false" onclick="setConsultationLayout('calendar')"><i class="fa-solid fa-calendar-week" aria-hidden="true"></i> Calendar</button>
+              </div>
               <button class="btn btn-primary" onclick="openModal('modal-add-consultation')">
                 <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> Book Consultation
               </button>
@@ -630,6 +652,7 @@
                 <tbody id="consultations-tbody"></tbody>
               </table>
             </div>
+            <div id="consultations-calendar" class="con-calendar hidden"></div>
           </div>
         </section>
 
@@ -655,7 +678,13 @@
             <div class="table-header-bar">
               <div class="search-input-wrap">
                 <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                <input type="search" aria-label="Search medicine" placeholder="Search medicine..." oninput="filterTable('pharmacy-table', this.value)" />
+                <input type="search" id="pharmacy-search" aria-label="Search medicine" placeholder="Search medicine..." oninput="applyPharmacyFilters()" />
+              </div>
+              <div class="filter-chips" role="group" aria-label="Filter medicines">
+                <button type="button" class="chip" data-filter="all" aria-pressed="true" onclick="setPharmacyFilter('all')">All</button>
+                <button type="button" class="chip staff-only" data-filter="low" aria-pressed="false" onclick="setPharmacyFilter('low')">Low stock</button>
+                <button type="button" class="chip staff-only" data-filter="out" aria-pressed="false" onclick="setPharmacyFilter('out')">Out of stock</button>
+                <button type="button" class="chip patient-only" data-filter="available" aria-pressed="false" onclick="setPharmacyFilter('available')">Available</button>
               </div>
               <button class="btn btn-primary staff-only" onclick="openModal('modal-add-medicine')">
                 <i class="fa-solid fa-plus" aria-hidden="true"></i> Restock Medicine
@@ -1310,6 +1339,22 @@
       <button type="button" class="btn btn-outline" onclick="saveCookieConsent(true)">Accept all</button>
     </div>
   </section>
+
+  <!-- Detail drawer (consultation and bed details) -->
+  <div id="detail-drawer" class="drawer hidden">
+    <div class="drawer-scrim" onclick="closeDrawer()"></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1">
+      <div class="drawer-head">
+        <div>
+          <p id="drawer-eyebrow" class="drawer-eyebrow"></p>
+          <h2 id="drawer-title"></h2>
+        </div>
+        <button type="button" class="btn-close" aria-label="Close details" onclick="closeDrawer()">&times;</button>
+      </div>
+      <dl id="drawer-body" class="drawer-body"></dl>
+      <div id="drawer-actions" class="drawer-actions"></div>
+    </aside>
+  </div>
 
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
