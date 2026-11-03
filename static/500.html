@@ -10,9 +10,17 @@
   <link rel="stylesheet" href="/vendor/fontawesome/css/fontawesome.min.css" />
   <link rel="stylesheet" href="/vendor/fontawesome/css/solid.min.css" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <script>
+    // Apply a saved light/dark choice before the page paints (otherwise the device setting is used)
+    try { const t = localStorage.getItem('asclepio-theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
 </head>
 <body>
   <main class="auth-wrapper" id="main">
+    <svg class="heartbeat" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path class="heartbeat-base" d="M0 70 H60 L80 70 L92 52 L104 70 L122 70 L134 18 L148 108 L162 70 L182 70 L196 58 L210 70 H1000 L1020 70 L1032 52 L1044 70 L1062 70 L1074 18 L1088 108 L1102 70 L1122 70 L1136 58 L1150 70 H1200" />
+      <path class="heartbeat-pulse" pathLength="100" d="M0 70 H60 L80 70 L92 52 L104 70 L122 70 L134 18 L148 108 L162 70 L182 70 L196 58 L210 70 H1000 L1020 70 L1032 52 L1044 70 L1062 70 L1074 18 L1088 108 L1102 70 L1122 70 L1136 58 L1150 70 H1200" />
+    </svg>
     <div class="auth-card glass-panel status-page">
       <div class="auth-header">
         <div class="logo-circle" aria-hidden="true"><i class="fa-solid fa-staff-snake"></i></div>

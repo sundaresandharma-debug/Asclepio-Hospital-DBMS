@@ -114,7 +114,15 @@ function stateBlock(icon, title, hint = '', retryFn = '') {
     </div>`;
 }
 
-const showTableLoading = (tbodyId, colspan) => tableMessage(tbodyId, colspan, 'spinner', 'Loading…');
+// Tables show shimmering placeholder rows while they load
+function showTableLoading(tbodyId, colspan) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const widths = [72, 54, 86, 40, 64, 48, 58, 36];
+  const row = (r) => `<tr class="skeleton-row" aria-hidden="true">${Array.from({ length: colspan }, (_, c) =>
+    `<td><span class="skeleton" style="width: ${widths[(r + c) % widths.length]}%"></span></td>`).join('')}</tr>`;
+  tbody.innerHTML = `<tr class="sr-only"><td colspan="${colspan}" role="status">Loading…</td></tr>${[0, 1, 2, 3].map(row).join('')}`;
+}
 
 // GET a JSON API and turn server errors into readable messages.
 async function getJSON(url) {
@@ -2355,3 +2363,180 @@ document.addEventListener('keydown', (event) => {
     }
   }
 });
+
+
+/* --------------------------------------------------------------------------
+   17. Theme switch, quick search (Ctrl+K)
+   -------------------------------------------------------------------------- */
+
+function currentTheme() {
+  const chosen = document.documentElement.dataset.theme;
+  if (chosen === 'dark' || chosen === 'light') return chosen;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function syncThemeToggles() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.querySelectorAll('.theme-toggle').forEach((button) => {
+    button.setAttribute('aria-label', `Switch to ${next} mode`);
+    button.title = `Switch to ${next} mode`;
+  });
+}
+
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('asclepio-theme', next); } catch (err) { /* private mode: applies to this visit only */ }
+  syncThemeToggles();
+}
+
+syncThemeToggles();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', syncThemeToggles);
+
+// Quick search: pages, and (once loaded) medicines, patients and doctors the signed-in person may see
+let cmdkItems = [];
+let cmdkResults = [];
+let cmdkIndex = 0;
+let cmdkReturnFocus = null;
+let cmdkDataLoaded = false;
+
+const CMDK_PAGES = [
+  ['dashboard', 'Dashboard', 'fa-chart-pie', 'all'],
+  ['beds', 'Ward Bed Map', 'fa-bed', 'all'],
+  ['employees', 'Doctors & Staff', 'fa-user-doctor', 'all'],
+  ['patients', 'All Patients', 'fa-hospital-user', 'staff'],
+  ['profile', 'My Medical Profile', 'fa-notes-medical', 'patient'],
+  ['consultations', 'Consultations', 'fa-calendar-check', 'all'],
+  ['prescriptions', 'Prescriptions', 'fa-file-prescription', 'all'],
+  ['pharmacy', 'Pharmacy Stock', 'fa-pills', 'all'],
+  ['emt', 'Ambulance Fleet', 'fa-truck-medical', 'all'],
+  ['privacy', 'Privacy Requests', 'fa-user-shield', 'staff'],
+  ['system', 'System', 'fa-server', 'staff'],
+  ['account', 'Account & Privacy', 'fa-user-gear', 'all']
+];
+
+function cmdkPageItems() {
+  const role = activeUser ? activeUser.role : '';
+  return CMDK_PAGES
+    .filter(([, , , who]) => who === 'all' || who === role)
+    .filter(([key]) => document.getElementById(`view-${key}`))
+    .map(([key, label, icon]) => ({ kind: 'Page', label, icon, run: () => switchView(key) }));
+}
+
+async function loadCmdkData() {
+  if (cmdkDataLoaded) return;
+  cmdkDataLoaded = true;
+  const isStaff = activeUser && activeUser.role === 'staff';
+  const jump = (view, inputSelector, text) => () => {
+    switchView(view);
+    const input = document.querySelector(inputSelector);
+    if (input) {
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+    }
+  };
+  const sources = [
+    getJSON('/api/pharmacy').then((meds) => meds.map((m) => ({
+      kind: 'Medicine', label: m.MEDICINE_NAME, detail: `${m.MEDICINE_TYPE} · ₹${Number(m.PRICE).toFixed(2)}`, icon: 'fa-pills',
+      run: jump('pharmacy', '#pharmacy-search', m.MEDICINE_NAME)
+    }))),
+    getJSON('/api/employees').then((docs) => docs.map((d) => ({
+      kind: 'Doctor', label: d.NAME, detail: d.DEPARTMENT, icon: 'fa-user-doctor',
+      run: jump('employees', '#view-employees input[type="search"]', d.NAME)
+    })))
+  ];
+  if (isStaff) {
+    sources.push(getJSON('/api/patients').then((pts) => pts.map((p) => ({
+      kind: 'Patient', label: p.NAME, detail: `${p.PID}${p.ISSUE ? ` · ${p.ISSUE}` : ''}`, icon: 'fa-hospital-user',
+      run: jump('patients', '#view-patients input[type="search"]', p.PID)
+    }))));
+  }
+  const results = await Promise.allSettled(sources);
+  cmdkItems = cmdkItems.concat(...results.filter((r) => r.status === 'fulfilled').map((r) => r.value));
+  renderCmdkResults();
+}
+
+function openCommandPalette() {
+  if (!activeUser) return;
+  const palette = document.getElementById('cmdk');
+  cmdkReturnFocus = document.activeElement;
+  cmdkItems = cmdkPageItems();
+  cmdkDataLoaded = false;
+  palette.classList.remove('hidden');
+  const input = document.getElementById('cmdk-input');
+  input.value = '';
+  cmdkIndex = 0;
+  renderCmdkResults();
+  input.focus();
+  loadCmdkData();
+}
+
+function closeCommandPalette() {
+  const palette = document.getElementById('cmdk');
+  if (palette.classList.contains('hidden')) return;
+  palette.classList.add('hidden');
+  if (cmdkReturnFocus && document.body.contains(cmdkReturnFocus)) cmdkReturnFocus.focus();
+  cmdkReturnFocus = null;
+}
+
+function renderCmdkResults() {
+  const list = document.getElementById('cmdk-list');
+  const input = document.getElementById('cmdk-input');
+  if (!list || !input) return;
+  const query = input.value.trim().toLowerCase();
+  cmdkResults = (query
+    ? cmdkItems.filter((item) => `${item.label} ${item.detail || ''} ${item.kind}`.toLowerCase().includes(query))
+    : cmdkItems.filter((item) => item.kind === 'Page')
+  ).slice(0, 12);
+  cmdkIndex = Math.min(cmdkIndex, Math.max(0, cmdkResults.length - 1));
+  list.innerHTML = cmdkResults.map((item, i) => `
+    <li id="cmdk-opt-${i}" role="option" aria-selected="${i === cmdkIndex}" class="cmdk-item${i === cmdkIndex ? ' is-active' : ''}" data-index="${i}">
+      <span class="cmdk-icon" aria-hidden="true"><i class="fa-solid ${item.icon}"></i></span>
+      <span class="cmdk-label">${escapeHtml(item.label)}${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ''}</span>
+      <span class="cmdk-kind">${item.kind}</span>
+    </li>`).join('') || `<li class="cmdk-empty" role="option" aria-selected="false" aria-disabled="true">No matches for “${escapeHtml(input.value)}”</li>`;
+  input.setAttribute('aria-activedescendant', cmdkResults.length ? `cmdk-opt-${cmdkIndex}` : '');
+  list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
+}
+
+function runCmdkItem(index) {
+  const item = cmdkResults[index];
+  if (!item) return;
+  cmdkReturnFocus = null;                 // the chosen page takes focus instead
+  closeCommandPalette();
+  item.run();
+  document.getElementById('main-content')?.focus();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('cmdk-input');
+  const list = document.getElementById('cmdk-list');
+  if (!input || !list) return;
+  input.addEventListener('input', () => { cmdkIndex = 0; renderCmdkResults(); });
+  list.addEventListener('mousemove', (event) => {
+    const option = event.target.closest('.cmdk-item');
+    if (option && Number(option.dataset.index) !== cmdkIndex) { cmdkIndex = Number(option.dataset.index); renderCmdkResults(); }
+  });
+  list.addEventListener('click', (event) => {
+    const option = event.target.closest('.cmdk-item');
+    if (option) runCmdkItem(Number(option.dataset.index));
+  });
+});
+
+document.addEventListener('keydown', (event) => {
+  const palette = document.getElementById('cmdk');
+  const isOpen = palette && !palette.classList.contains('hidden');
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+  const appVisible = !document.getElementById('app-screen')?.classList.contains('hidden');
+  if (!isOpen && appVisible && activeUser && ((event.key === 'k' && (event.ctrlKey || event.metaKey)) || (event.key === '/' && !typing))) {
+    event.preventDefault();
+    openCommandPalette();
+    return;
+  }
+  if (!isOpen) return;
+  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeCommandPalette(); }
+  else if (event.key === 'ArrowDown') { event.preventDefault(); cmdkIndex = Math.min(cmdkIndex + 1, cmdkResults.length - 1); renderCmdkResults(); }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); cmdkIndex = Math.max(cmdkIndex - 1, 0); renderCmdkResults(); }
+  else if (event.key === 'Enter') { event.preventDefault(); runCmdkItem(cmdkIndex); }
+  else if (event.key === 'Tab') { event.preventDefault(); document.getElementById('cmdk-input').focus(); }
+}, true);

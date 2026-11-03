@@ -13,12 +13,20 @@
   <link rel="stylesheet" href="/vendor/fontawesome/css/fontawesome.min.css" />
   <link rel="stylesheet" href="/vendor/fontawesome/css/solid.min.css" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <script>
+    // Apply a saved light/dark choice before the page paints (otherwise the device setting is used)
+    try { const t = localStorage.getItem('asclepio-theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
 </head>
 <body>
   <a href="#" class="skip-link" onclick="skipToMain(event)">Skip to main content</a>
 
   <!-- AUTHENTICATION VIEW -->
   <main id="auth-screen" class="auth-wrapper" tabindex="-1">
+    <svg class="heartbeat" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path class="heartbeat-base" d="M0 70 H60 L80 70 L92 52 L104 70 L122 70 L134 18 L148 108 L162 70 L182 70 L196 58 L210 70 H1000 L1020 70 L1032 52 L1044 70 L1062 70 L1074 18 L1088 108 L1102 70 L1122 70 L1136 58 L1150 70 H1200" />
+      <path class="heartbeat-pulse" pathLength="100" d="M0 70 H60 L80 70 L92 52 L104 70 L122 70 L134 18 L148 108 L162 70 L182 70 L196 58 L210 70 H1000 L1020 70 L1032 52 L1044 70 L1062 70 L1074 18 L1088 108 L1102 70 L1122 70 L1136 58 L1150 70 H1200" />
+    </svg>
     <div class="auth-brand-glow" aria-hidden="true"></div>
     <div class="auth-layout">
     <!-- Live hospital stats (aggregate counts only, no patient data) -->
@@ -51,6 +59,9 @@
     </section>
 
     <div class="auth-card glass-panel">
+      <button type="button" class="theme-toggle auth-theme-toggle" onclick="toggleTheme()" aria-label="Switch to dark mode">
+        <i class="fa-solid fa-moon" aria-hidden="true"></i><i class="fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
       <div class="auth-header">
         <div class="logo-circle" aria-hidden="true"><i class="fa-solid fa-staff-snake" aria-hidden="true"></i></div>
         <h1 class="auth-title">Asclepio</h1>
@@ -281,6 +292,9 @@
           <span class="user-name" id="display-user-name">Administrator</span>
           <span class="user-handle" id="display-user-handle">@admin</span>
         </div>
+        <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch to dark mode">
+          <i class="fa-solid fa-moon" aria-hidden="true"></i><i class="fa-solid fa-sun" aria-hidden="true"></i>
+        </button>
         <button class="btn-logout" title="Sign Out" aria-label="Sign out" onclick="handleLogout()">
           <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
         </button>
@@ -306,6 +320,9 @@
           <p id="page-subtitle">Real-time clinical metrics & status</p>
         </div>
         <div class="top-actions">
+          <button type="button" class="cmdk-trigger" onclick="openCommandPalette()" aria-label="Search (Ctrl+K)" aria-keyshortcuts="Control+K Meta+K">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span class="cmdk-trigger-text">Search</span><kbd>Ctrl K</kbd>
+          </button>
           <button class="btn btn-outline staff-only" onclick="resetDatabasePrompt()">
             <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset Demo Data
           </button>
@@ -1339,6 +1356,21 @@
       <button type="button" class="btn btn-outline" onclick="saveCookieConsent(true)">Accept all</button>
     </div>
   </section>
+
+  <!-- Quick search (Ctrl+K) -->
+  <div id="cmdk" class="cmdk hidden">
+    <div class="cmdk-scrim" onclick="closeCommandPalette()"></div>
+    <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Quick search">
+      <div class="cmdk-input-row">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="cmdk-input" type="text" role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list"
+          aria-label="Search pages, patients, doctors and medicines" placeholder="Search pages, patients, doctors, medicines…" autocomplete="off" />
+        <kbd>Esc</kbd>
+      </div>
+      <ul id="cmdk-list" class="cmdk-list" role="listbox" aria-label="Results"></ul>
+      <p class="cmdk-hint"><kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close</p>
+    </div>
+  </div>
 
   <!-- Detail drawer (consultation and bed details) -->
   <div id="detail-drawer" class="drawer hidden">
