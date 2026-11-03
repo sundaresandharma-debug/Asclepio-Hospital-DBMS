@@ -604,8 +604,8 @@ function renderBedsMatrix(beds) {
             // Patients never receive other patients' details from the API; only staff or the bed's own patient see them.
             const showPatient = isOccupied && (isStaff || bed.IS_MINE);
             const actionHint = isOccupied
-              ? (isStaff ? 'Select to discharge' : '')
-              : isAvailable ? (isStaff ? 'Select to allocate a patient' : 'Select to reserve') : '';
+              ? (isStaff ? 'Select for details or to discharge' : '')
+              : isAvailable ? (isStaff ? 'Select for details or to allocate a patient' : 'Select for details or to reserve') : '';
             const accessibleLabel = [
               `${bed.WARD_TYPE} ${bed.BED_NUMBER}`,
               bed.STATUS,
@@ -644,7 +644,35 @@ function renderBedsMatrix(beds) {
   }).join('');
 }
 
-async function handleBedCardClick(bedId) {
+function handleBedCardClick(bedId) {
+  const bed = hospitalBedsCache.find((b) => b.BED_ID === bedId);
+  if (!bed) return;
+  const isStaff = activeUser && activeUser.role === 'staff';
+  const showPatient = bed.STATUS === 'Occupied' && (isStaff || bed.IS_MINE);
+  const actions = [];
+  if (!isStaff && bed.STATUS === 'Available') actions.push({ label: 'Reserve this bed', icon: 'fa-bed', className: 'btn-primary', onClick: () => { closeDrawer(); bedAction(bedId); } });
+  if (isStaff && bed.STATUS === 'Available') actions.push({ label: 'Allocate a patient', icon: 'fa-user-plus', className: 'btn-primary', onClick: () => { closeDrawer(); bedAction(bedId); } });
+  if (isStaff && bed.STATUS === 'Occupied') actions.push({ label: 'Discharge', icon: 'fa-right-from-bracket', className: 'btn-danger', onClick: () => { closeDrawer(); bedAction(bedId); } });
+  const statusClass = { Available: 'status-available', Occupied: 'status-occupied', Maintenance: 'status-maintenance' }[bed.STATUS] || '';
+  openDrawer({
+    eyebrow: bed.WARD_TYPE,
+    title: `Bed ${bed.BED_NUMBER}`,
+    rows: [
+      ['Status', `<span class="status-pill ${statusClass}">${escapeHtml(bed.IS_MINE ? 'Your bed' : bed.STATUS)}</span>`, true],
+      ...(showPatient ? [
+        ['Patient', bed.PATIENT_NAME || 'Admitted patient'],
+        ['Age / gender', `${bed.PATIENT_AGE || '--'} yrs / ${bed.PATIENT_GENDER || '--'}`],
+        ['Condition', bed.PATIENT_ISSUE || 'Under observation'],
+        ['Admitted', bed.ASSIGNED_DATE || 'Recent']
+      ] : []),
+      ...(bed.STATUS === 'Maintenance' ? [['Note', 'This bed is being serviced and cannot be booked right now.']] : []),
+      ...(bed.STATUS === 'Available' && !isStaff ? [['Charges', 'No payment is taken here. Ward charges, if any, are explained by the admissions desk.']] : [])
+    ],
+    actions
+  });
+}
+
+async function bedAction(bedId) {
   const bed = hospitalBedsCache.find((b) => b.BED_ID === bedId);
   if (!bed) return;
 
@@ -661,9 +689,15 @@ async function handleBedCardClick(bedId) {
           const payload = await response.json();
           if (!response.ok) throw new Error(payload.error || 'Failed to reserve bed');
 
-          notifyUser(payload.message, 'success');
           loadWardBeds();
           refreshDashboard();
+          showSuccess({
+            title: 'Bed reserved',
+            lead: payload.message,
+            rows: [['Bed', bed.BED_NUMBER], ['Ward', bed.WARD_TYPE], ['Payment', 'None taken here; the admissions desk explains any ward charges']],
+            primaryLabel: 'View my profile',
+            primaryAction: () => switchView('profile')
+          });
         } catch (err) {
           notifyUser(err.message, 'error');
         }
@@ -1079,10 +1113,25 @@ async function handleBookConsultation(event) {
   const data = await response.json();
 
   if (response.ok) {
-    notifyUser(data.message, 'success');
+    const doctorSelect = document.getElementById('con-doctor-id');
+    const doctorLabel = doctorSelect.options[doctorSelect.selectedIndex]?.text || '';
+    const patientSelect = document.getElementById('con-patient-id');
+    const when = parseSlot(appointmentPayload.TIME);
     closeModal('modal-add-consultation');
     loadConsultationsRegistry();
     refreshDashboard();
+    showSuccess({
+      title: 'Consultation booked',
+      lead: data.message,
+      rows: [
+        ['Reference', data.CONSULTATION_ID],
+        ...(patientSelect && activeUser.role === 'staff' ? [['Patient', patientSelect.options[patientSelect.selectedIndex]?.text || '']] : []),
+        ['Doctor', doctorLabel.replace(' - ', ' · ')],
+        ['When', when ? when.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : appointmentPayload.TIME]
+      ],
+      primaryLabel: activeUser.role === 'staff' ? 'View consultations' : 'View my appointments',
+      primaryAction: () => switchView('consultations')
+    });
   } else {
     notifyUser(data.error, 'error');
   }
@@ -1188,6 +1237,7 @@ async function loadPrescriptionsRegistry() {
               <div class="rx-med-item">
                 <span><strong>${escapeHtml(m.MEDICINE_NAME)}</strong> (${escapeHtml(m.DOSAGE)})</span>
                 <span>${escapeHtml(m.FREQUENCY)}</span>
+                ${scheduleHtml(m.FREQUENCY)}
               </div>
             `).join('')}
           </div>
@@ -1578,6 +1628,7 @@ async function loadPatientProfile() {
       document.getElementById('prof-history').value = profile.MEDICAL_HISTORY || '';
       document.getElementById('prof-bed-info').innerHTML = `<i class="fa-solid fa-bed" aria-hidden="true"></i> Bed: ${profile.BED_NUMBER ? `${escapeHtml(profile.BED_NUMBER)} (${escapeHtml(profile.WARD_TYPE)})` : 'Not currently admitted'}`;
       document.getElementById('prof-bill-info').textContent = `Bill No: ${profile.BILL_NO || 'N/A'}`;
+      renderProfileCompleteness();
     }
 
     const purchases = await getJSON('/api/pharmacy/purchases');
@@ -2540,3 +2591,86 @@ document.addEventListener('keydown', (event) => {
   else if (event.key === 'Enter') { event.preventDefault(); runCmdkItem(cmdkIndex); }
   else if (event.key === 'Tab') { event.preventDefault(); document.getElementById('cmdk-input').focus(); }
 }, true);
+
+
+/* --------------------------------------------------------------------------
+   18. Patient touches: profile completeness, medicine schedule, success summary
+   -------------------------------------------------------------------------- */
+
+const PROFILE_FIELDS = [
+  ['prof-name', 'Full name', (v) => v.trim().length > 0],
+  ['prof-mobile', 'Emergency contact mobile', (v) => v.trim().length > 0],
+  ['prof-age', 'Age', (v) => v !== '' && Number(v) >= 0],
+  ['prof-blood', 'Blood group', (v) => v && v !== 'Unknown'],
+  ['prof-allergies', 'Allergies (write "None" if you have none)', (v) => v.trim().length > 0],
+  ['prof-issue', 'Current concern or symptoms', (v) => v.trim().length > 0],
+  ['prof-history', 'Past medical history', (v) => v.trim().length > 0]
+];
+
+function renderProfileCompleteness() {
+  const box = document.getElementById('profile-completeness');
+  if (!box) return;
+  const missing = PROFILE_FIELDS.filter(([id, , isDone]) => !isDone(document.getElementById(id)?.value ?? ''));
+  const done = PROFILE_FIELDS.length - missing.length;
+  const pct = Math.round((done / PROFILE_FIELDS.length) * 100);
+  box.innerHTML = `
+    <span class="occ-ring occ-ring-profile" style="--pct: ${pct}" role="img" aria-label="Health profile ${pct}% complete">
+      <span class="occ-ring-centre" aria-hidden="true"><strong>${pct}%</strong><small>complete</small></span>
+    </span>
+    <div class="profile-checklist">
+      <p class="profile-checklist-title">${missing.length ? `Add ${missing.length} more detail${missing.length === 1 ? '' : 's'} so doctors have the full picture` : 'Your health profile is complete'}</p>
+      ${missing.length ? `<ul>${missing.map(([id, label]) => `<li><button type="button" class="btn-link" onclick="document.getElementById('${id}').focus()">${escapeHtml(label)}</button></li>`).join('')}</ul>`
+        : '<p class="text-muted">Keep it up to date before each visit.</p>'}
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('profile-form');
+  if (form) {
+    form.addEventListener('input', renderProfileCompleteness);
+  }
+});
+
+// When to take a medicine, worked out from its frequency text
+function parseSchedule(frequency) {
+  const f = String(frequency || '').toLowerCase();
+  if (/as needed|when needed|if needed|\bsos\b|\bprn\b/.test(f)) return { asNeeded: true, slots: [] };
+  const slots = new Set();
+  if (/thrice|three times|3 times|\btds\b|\btid\b/.test(f)) ['morning', 'afternoon', 'night'].forEach((s) => slots.add(s));
+  else if (/twice|two times|2 times|\bbd\b|\bbid\b/.test(f)) ['morning', 'night'].forEach((s) => slots.add(s));
+  if (/morning|breakfast/.test(f)) slots.add('morning');
+  if (/afternoon|lunch|noon/.test(f)) slots.add('afternoon');
+  if (/evening|dinner|night|bedtime|sleep/.test(f)) slots.add('night');
+  if (!slots.size && /once|daily|every day|\bod\b/.test(f)) slots.add('morning');
+  return { asNeeded: false, slots: [...slots] };
+}
+
+function scheduleHtml(frequency) {
+  const { asNeeded, slots } = parseSchedule(frequency);
+  if (asNeeded) return '<span class="rx-schedule"><span class="rx-asneeded"><i class="fa-solid fa-hand-holding-medical" aria-hidden="true"></i> As needed</span></span>';
+  if (!slots.length) return '';
+  const parts = [['morning', 'fa-sun', 'Morning'], ['afternoon', 'fa-cloud-sun', 'Afternoon'], ['night', 'fa-moon', 'Night']];
+  return `<span class="rx-schedule" role="img" aria-label="Take: ${slots.join(', ')}">
+    ${parts.map(([key, icon, label]) => `<span class="rx-slot${slots.includes(key) ? ' is-on' : ''}" aria-hidden="true" title="${label}"><i class="fa-solid ${icon}"></i><small>${label}</small></span>`).join('')}
+  </span>`;
+}
+
+// Animated tick and a summary card after a booking or reservation
+function showSuccess({ title, lead = '', rows = [], primaryLabel = 'View', primaryAction = null }) {
+  document.getElementById('success-title').textContent = title;
+  document.getElementById('success-lead').textContent = lead;
+  document.getElementById('success-summary').innerHTML = rows.map(([label, value]) => `
+    <div class="success-row"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+  const primary = document.getElementById('success-primary');
+  primary.textContent = primaryLabel;
+  primary.classList.toggle('hidden', !primaryAction);
+  primary.onclick = () => {
+    closeModal('modal-success');
+    if (primaryAction) primaryAction();
+  };
+  const card = document.querySelector('#modal-success .success-card');
+  card.classList.remove('play');
+  void card.offsetWidth;            // restart the tick animation
+  card.classList.add('play');
+  openModal('modal-success');
+}

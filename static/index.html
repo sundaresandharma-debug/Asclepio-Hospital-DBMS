@@ -538,6 +538,7 @@
                 <h3><i class="fa-solid fa-notes-medical" aria-hidden="true"></i> My Health Profile & Clinical Record</h3>
                 <span id="profile-pid-badge" class="badge-role">PAT001</span>
               </div>
+              <div id="profile-completeness" class="profile-completeness"></div>
               <form id="profile-form" onsubmit="handleUpdateProfile(event)">
                 <div class="form-grid-2">
                   <div class="form-group">
@@ -1356,6 +1357,23 @@
       <button type="button" class="btn btn-outline" onclick="saveCookieConsent(true)">Accept all</button>
     </div>
   </section>
+
+  <!-- Success summary after a booking or bed reservation -->
+  <div id="modal-success" class="modal-backdrop hidden">
+    <div class="modal-card glass-panel success-card" role="dialog" aria-modal="true" aria-labelledby="success-title" aria-describedby="success-lead">
+      <svg class="success-tick" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <circle class="success-tick-circle" cx="32" cy="32" r="28" />
+        <path class="success-tick-check" d="M20 33 L28.5 41.5 L45 24" />
+      </svg>
+      <h3 id="success-title" class="success-title">Booked</h3>
+      <p id="success-lead" class="success-lead"></p>
+      <dl id="success-summary" class="success-summary"></dl>
+      <div class="success-actions">
+        <button type="button" class="btn btn-outline" id="success-secondary" onclick="closeModal('modal-success')">Done</button>
+        <button type="button" class="btn btn-primary" id="success-primary">View</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Quick search (Ctrl+K) -->
   <div id="cmdk" class="cmdk hidden">

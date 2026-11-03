@@ -2705,3 +2705,56 @@ input.switch:disabled, input[type="checkbox"]:disabled { opacity: 0.55; cursor: 
   .skeleton { animation: none; }
   .view-panel.active { animation: none; }
 }
+
+/* ==========================================================================
+   Patient touches
+   ========================================================================== */
+
+/* Profile completeness */
+.profile-completeness {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 16px 18px; margin-bottom: 18px; border-radius: var(--radius-lg); background: var(--wash);
+}
+.occ-ring-profile { --size: 88px; --thickness: 9px; background: conic-gradient(var(--signal) calc(var(--pct) * 1%), var(--line-strong) 0); }
+.occ-ring-profile::before { background: var(--wash); }
+.occ-ring-profile .occ-ring-centre strong { font-size: 20px; }
+.profile-checklist { flex: 1; min-width: 200px; display: grid; gap: 6px; }
+.profile-checklist-title { font-weight: 700; color: var(--ink); }
+.profile-checklist ul { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.profile-checklist .btn-link { font-size: 13px; padding: 2px 0; }
+
+/* When to take each medicine */
+.rx-med-item { flex-wrap: wrap; gap: 4px 10px; }
+.rx-schedule { flex-basis: 100%; display: flex; gap: 6px; padding: 4px 0 2px; }
+.rx-slot {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; color: var(--muted); border: 1px dashed var(--line-strong);
+}
+.rx-slot small { font-size: 11px; }
+.rx-slot.is-on { border-style: solid; border-color: var(--ink); background: var(--orchid); color: var(--ink); font-weight: 700; }
+.rx-asneeded { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--warn-bg); color: var(--warn); }
+
+/* Success summary with an animated tick */
+.success-card { text-align: center; max-width: 440px; }
+.success-tick { width: 76px; height: 76px; margin: 4px auto 10px; display: block; }
+.success-tick-circle { fill: var(--ok-bg); stroke: var(--ok); stroke-width: 3; stroke-dasharray: 176; stroke-dashoffset: 0; }
+.success-tick-check { fill: none; stroke: var(--ok); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 0; }
+.success-card.play .success-tick-circle { animation: tick-draw-circle 0.55s ease-out both; }
+.success-card.play .success-tick-check { animation: tick-draw-check 0.35s 0.45s ease-out both; }
+.success-card.play .success-tick { animation: tick-pop 0.4s 0.75s ease-out; }
+@keyframes tick-draw-circle { from { stroke-dashoffset: 176; } }
+@keyframes tick-draw-check { from { stroke-dashoffset: 40; } }
+@keyframes tick-pop { 50% { transform: scale(1.08); } }
+.success-title { font-size: 24px; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+.success-lead { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+.success-summary { text-align: left; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 4px 16px; margin-bottom: 20px; }
+.success-row { display: grid; grid-template-columns: 100px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.success-row:last-child { border-bottom: none; }
+.success-row dt { color: var(--muted); font-weight: 600; }
+.success-row dd { margin: 0; color: var(--text); font-weight: 600; }
+.success-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* Bed map: the ward under the pointer or keyboard focus stands out */
+.ward-sections-container .ward-block { transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease; }
+.ward-sections-container .ward-block:hover,
+.ward-sections-container .ward-block:focus-within { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink), 0 14px 34px rgba(42, 5, 48, 0.14); }
