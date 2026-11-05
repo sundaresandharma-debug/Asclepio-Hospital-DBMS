@@ -587,7 +587,7 @@ function renderBedsMatrix(beds) {
     const availableCount = wardBeds.filter((b) => b.STATUS === 'Available').length;
 
     return `
-      <div class="ward-block glass-panel">
+      <div class="ward-block panel">
         <div class="ward-block-header">
           <h3><i class="fa-solid fa-hospital"></i> ${escapeHtml(wardName)}</h3>
           <span class="ward-head-meta">

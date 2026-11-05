@@ -1,36 +1,36 @@
-/* Inter (SIL Open Font License 1.1), self-hosted from @fontsource/inter 5.1.0. Licence: /vendor/licenses/INTER-OFL.txt */
+/* Public Sans (SIL Open Font License 1.1), self-hosted from @fontsource/public-sans 5.1.0. Licence: /vendor/licenses/PUBLIC-SANS-OFL.txt */
 @font-face {
-  font-family: "Inter";
+  font-family: "Public Sans";
   font-style: normal;
   font-display: swap;
   font-weight: 400;
-  src: url("./inter-latin-400-normal.woff2") format("woff2");
+  src: url("./public-sans-latin-400-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Inter";
+  font-family: "Public Sans";
   font-style: normal;
   font-display: swap;
   font-weight: 500;
-  src: url("./inter-latin-500-normal.woff2") format("woff2");
+  src: url("./public-sans-latin-500-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Inter";
+  font-family: "Public Sans";
   font-style: normal;
   font-display: swap;
   font-weight: 600;
-  src: url("./inter-latin-600-normal.woff2") format("woff2");
+  src: url("./public-sans-latin-600-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Inter";
+  font-family: "Public Sans";
   font-style: normal;
   font-display: swap;
   font-weight: 700;
-  src: url("./inter-latin-700-normal.woff2") format("woff2");
+  src: url("./public-sans-latin-700-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Inter";
+  font-family: "Public Sans";
   font-style: normal;
   font-display: swap;
   font-weight: 800;
-  src: url("./inter-latin-800-normal.woff2") format("woff2");
+  src: url("./public-sans-latin-800-normal.woff2") format("woff2");
 }
